@@ -1,0 +1,4 @@
+Point{id=id1167, cat=HOSPITAL, lat=-36.4355438275, lon=145.032232726}
+Point{id=id1000, cat=HOSPITAL, lat=-36.5421357563, lon=144.931418298}
+Delete point failed.
+true

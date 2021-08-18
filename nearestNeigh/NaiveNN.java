@@ -4,6 +4,8 @@ import java.util.*;
 import java.util.LinkedList;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Collections;
+import java.util.Comparator;
 
 /**
  * This class is required to be implemented.  Naive approach implementation.
@@ -30,37 +32,37 @@ public class NaiveNN implements NearestNeigh{
         }
     }
 
-    @Override
-    public List<Point> search(Point searchTerm, int k) {
-        // To be implemented.
+    private void insertIntoList(ArrayList<Point> list, Point point, HashMap<String, Double> distance, int lengthLimit){
+        list.add(point);
+        for (int i = list.size() - 1; i > 0; i--){
+            if (distance.get(list.get(i - 1).id) > distance.get(point.id)){
+                list.set(i, list.get(i - 1));
 
-        // initialize empty data structure
-        LinkedList<Point> resultList = new LinkedList<>();
-
-        // calculate the distance for all points
-        int j = 0;
-        Point v = new Point();
-        for (int index = 0; index < pointsMap.size(); index++) {
-            if (pointsMap.get(index).cat.equals(searchTerm.cat)){
-                if (resultList.isEmpty()){
-                    resultList.add(pointsMap.get(index));
-                }else{
-                    Double distance = searchTerm.distTo(pointsMap.get(index));
-                    v = pointsMap.get(index);
-                    if (resultList.size() < k){
-                        j = resultList.size() - 1;
-                    }else{
-                        j = k - 1;
-                    }
-                    Double tempDis = searchTerm.distTo(resultList.get(j));
-                    while (j >= 0 && tempDis > distance){
-                        resultList.set(j + 1, resultList.get(j));
-                        j = j - 1;
-                    }
-                    resultList.set(j + 1, v);
+                if (i == 1){
+                    list.set(0, point);
                 }
             }else{
+                list.set(i, point);
                 break;
+            }
+        }
+        if (list.size() > lengthLimit){
+            list.remove(list.size() - 1);
+        }
+    }
+
+
+    @Override
+    public List<Point> search(Point searchTerm, int k) {
+        // initialize result list and distances hashmap
+        HashMap<String, Double> distances = new HashMap<>();
+        ArrayList<Point> resultList = new ArrayList<>();
+
+        // go through the pointsMap
+        for (Point point : pointsMap.values()) {
+            if (point.cat == searchTerm.cat){
+                distances.put(point.id, searchTerm.distTo(point));
+                insertIntoList(resultList, point, distances, k);
             }
         }
 
@@ -81,7 +83,7 @@ public class NaiveNN implements NearestNeigh{
     public boolean deletePoint(Point point) {
         // To be implemented.
         if (pointsMap.containsValue(point)){
-            pointsMap.remove(point.id, point);
+            pointsMap.remove(point.id);
             return true;
         }
         return false;
