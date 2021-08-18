@@ -38,21 +38,29 @@ public class NaiveNN implements NearestNeigh{
         LinkedList<Point> resultList = new LinkedList<>();
 
         // calculate the distance for all points
+        int j = 0;
+        Point v = new Point();
         for (int index = 0; index < pointsMap.size(); index++) {
             if (pointsMap.get(index).cat.equals(searchTerm.cat)){
                 if (resultList.isEmpty()){
                     resultList.add(pointsMap.get(index));
                 }else{
                     Double distance = searchTerm.distTo(pointsMap.get(index));
-                    for (int i = resultList.size(); i >=0; i--){
-                        Double tempDis = searchTerm.distTo(resultList.get(i));
-                        if (distance > tempDis){
-                            break;
-                        }else {
-
-                        }
+                    v = pointsMap.get(index);
+                    if (resultList.size() < k){
+                        j = resultList.size() - 1;
+                    }else{
+                        j = k - 1;
                     }
+                    Double tempDis = searchTerm.distTo(resultList.get(j));
+                    while (j >= 0 && tempDis > distance){
+                        resultList.set(j + 1, resultList.get(j));
+                        j = j - 1;
+                    }
+                    resultList.set(j + 1, v);
                 }
+            }else{
+                break;
             }
         }
 
