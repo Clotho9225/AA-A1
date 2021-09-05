@@ -1,91 +1,286 @@
 package nearestNeigh;
 
-import javax.swing.*;
-import javax.xml.soap.Node;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * This class is required to be implemented.  Kd-tree implementation.
  *
  * 
  */
-class KDNode{
-    String id;
-    String leftChildId;
-    String rightChildId;
-
-    public KDNode() {
-        String id = null;
-        leftChildId = null;
-        rightChildId = null;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getLeftChildId() {
-        return leftChildId;
-    }
-
-    public void setLeftChildId(String leftChildId) {
-        this.leftChildId = leftChildId;
-    }
-
-    public String getRightChildId() {
-        return rightChildId;
-    }
-
-    public void setRightChildId(String rightChildId) {
-        this.rightChildId = rightChildId;
-    }
-}
-
 public class KDTreeNN implements NearestNeigh{
-    // initialize an empty hashMap, the key is the number of the id, value is the point
-    // easy for searching
-    HashMap<String, Point> pointsMap;
-    ArrayList<KDNode> kdTree;
+    protected static final int X_AXIS = 0;
+    protected static final int Y_AXIS = 1;
 
-    public KDTreeNN() {
-        this.pointsMap =  new HashMap<>();
-        this.kdTree = new ArrayList<>();
+    // helper method
+    private static final Comparator<Point> X_COMPARATOR = new Comparator<Point>() {
+        @Override
+        public int compare(Point o1, Point o2) {
+            if (o1.lat < o2.lat){
+                return -1;
+            }
+            if (o1.lat > o2.lat){
+                return 1;
+            }
+            return 0;
+        }
+    };
+
+    private static final Comparator<Point> Y_COMPARATOR = new Comparator<Point>() {
+        @Override
+        public int compare(Point o1, Point o2) {
+            if (o1.lon < o2.lon){
+                return -1;
+            }
+            if (o1.lon > o2.lon){
+                return 1;
+            }
+            return 0;
+        }
+    };
+
+    public static class KDNode{
+        private Point point;
+        int depth;
+
+        private KDNode parent = null;
+        private KDNode left = null;
+        private KDNode right = null;
+
+        public KDNode() {
+            this.point = null;
+            this.depth = 0;
+        }
+
+        public KDNode(Point point){
+            this.point = point;
+            this.depth = 0;
+        }
+
+        public KDNode(Point point, int depth){
+            this.point = point;
+            this.depth = depth;
+        }
+
+        public static int compareTo(int depth, int dimension, Point o1, Point o2) {
+            int axis = depth % dimension;
+            if (axis == X_AXIS)
+                return X_COMPARATOR.compare(o1, o2);
+            return Y_COMPARATOR.compare(o1, o2);
+        }
+
+        public Point getPoint() {
+            return point;
+        }
+
+        public void setPoint(Point point) {
+            this.point = point;
+        }
+
+        public int getDepth() {
+            return depth;
+        }
+
+        public void setDepth(int depth) {
+            this.depth = depth;
+        }
     }
 
-    private ArrayList<KDNode> buildKdTree(ArrayList<KDNode> kdTree, HashMap<String, Point> pointsMap){
-        // to be
-        // 先看x纬度，找到x的中位数所在的点作为root点 （点两边的数量平均）
-        // 再看y 循环
-        // bool 控制纬度，0 - x， 1 - y
+    private int dimension = 2;
+    KDNode restaurantTree = null;
+    KDNode educationTree = null;
+    KDNode hospitalTree = null;
 
-        return kdTree;
+    // default constructor
+    public KDTreeNN() { }
+
+    // create node to build the tree from the input list
+    private KDNode createTree(List<Point> points, int depth){
+        // edge case, avoid null pointer exception
+        if (points.size() == 0 || points == null){
+            return null;
+        }
+
+        // sort the list according to the dimension
+        int axis = depth % dimension;
+        if (axis == X_AXIS)
+            Collections.sort(points, X_COMPARATOR);
+        else if (axis == Y_AXIS)
+            Collections.sort(points, Y_COMPARATOR);
+
+        KDNode node = null;
+        List<Point> less = new ArrayList<Point>(points.size());
+        List<Point> more = new ArrayList<Point>(points.size());
+
+        if (points.size() > 0 ){
+            int medianIndex = points.size() / 2;
+            node = new KDNode(points.get(medianIndex), depth);
+            // Process list to see where each non-median point lies
+            for (int i = 0; i < points.size(); i++) {
+                if (i == medianIndex)
+                    continue;
+                Point point = points.get(i);
+                // Cannot assume points before the median are less since they could be equal
+                if (KDNode.compareTo(depth, dimension, point, node.point) <= 0) {
+                    less.add(point);
+                } else {
+                    more.add(point);
+                }
+            }
+
+            if ((medianIndex-1 >= 0) && less.size() > 0) {
+                node.left = createTree(less, depth + 1);
+                node.right.parent = node;
+            }
+
+            if ((medianIndex <= points.size()-1) && more.size() > 0) {
+                node.right = createTree(more, depth + 1);
+                node.right.parent = node;
+            }
+        }
+        return node;
     }
 
     @Override
     public void buildIndex(List<Point> points) {
-        // To be implemented.
+        List<Point> restaurantPoints = new ArrayList<>();
+        List<Point> educationPoints = new ArrayList<>();
+        List<Point> hospitalPoints = new ArrayList<>();
 
-        // add elements into the map
+        // separate points by category
         for ( Point point : points ) {
-            pointsMap.put(point.id, point);
+            if (point.cat == Category.RESTAURANT){
+                restaurantPoints.add(point);
+            }
+            if (point.cat == Category.EDUCATION){
+                educationPoints.add(point);
+            }
+            if (point.cat == Category.HOSPITAL){
+                hospitalPoints.add(point);
+            }
         }
 
+        // build the kd-tree for each category
+        restaurantTree = createTree(restaurantPoints, 0);
+        educationTree = createTree(educationPoints, 0);
+        hospitalTree = createTree(hospitalPoints, 0);
+    }
 
+    private void searchNode(Point searchTerm, KDNode node, int k, TreeSet<KDNode> results, Set<KDNode> examined){
+        examined.add(node);
 
-        kdTree = buildKdTree(kdTree, pointsMap);
+        // Search node
+        KDNode lastNode = null;
+        Double lastDistance = Double.MAX_VALUE;
+        if (results.size() > 0) {
+            lastNode = results.last();
+            lastDistance = lastNode.point.distTo(searchTerm);
+        }
+        Double nodeDistance = node.point.distTo(searchTerm);
+        if (nodeDistance.compareTo(lastDistance) < 0) {
+            if (results.size() == k && lastNode != null)
+                results.remove(lastNode);
+            results.add(node);
+        } else if (nodeDistance.equals(lastDistance)) {
+            results.add(node);
+        } else if (results.size() < k) {
+            results.add(node);
+        }
+        lastNode = results.last();
+        lastDistance = lastNode.point.distTo(searchTerm);
+
+        int axis = node.depth % dimension;
+        KDNode leftNode = node.left;
+        KDNode rightNode = node.right;
+
+        // if axis aligned distance is less than current distance, search children tree,
+        if (leftNode != null && !examined.contains(leftNode)) {
+            examined.add(leftNode);
+
+            double nodePoint = Double.MIN_VALUE;
+            double valuePlusDistance = Double.MIN_VALUE;
+            if (axis == X_AXIS) {
+                nodePoint = node.point.lat;
+                valuePlusDistance = searchTerm.lat - lastDistance;
+            } else if (axis == Y_AXIS) {
+                nodePoint = node.point.lon;
+                valuePlusDistance = searchTerm.lon - lastDistance;
+            boolean lineIntersectsCube = ((valuePlusDistance <= nodePoint) ? true : false);
+
+            // Continue down left branch
+            if (lineIntersectsCube)
+                searchNode(searchTerm, leftNode, k, results, examined);
+        }
+        if (rightNode != null && !examined.contains(rightNode)) {
+            examined.add(rightNode);
+
+            nodePoint = Double.MIN_VALUE;
+            valuePlusDistance = Double.MIN_VALUE;
+            if (axis == X_AXIS) {
+                nodePoint = node.id.x;
+                nodePoint = node.id.x;
+                valuePlusDistance = value.x + lastDistance;
+            } else if (axis == Y_AXIS) {
+                nodePoint = node.id.y;
+                valuePlusDistance = value.y + lastDistance;
+            } else {
+                nodePoint = node.id.z;
+                valuePlusDistance = value.z + lastDistance;
+            }
+            boolean lineIntersectsCube = ((valuePlusDistance >= nodePoint) ? true : false);
+
+            // Continue down greater branch
+            if (lineIntersectsCube)
+                searchNode(value, rightNode, K, results, examined);
+        }
     }
 
     @Override
     public List<Point> search(Point searchTerm, int k) {
-        // To be implemented.
+        // initialize the result set
+        TreeSet<KDNode> results = new TreeSet<KDNode>(new EuclideanComparator(searchTerm));
+        ArrayList<Point> resultList = new ArrayList<>();
 
-        return new ArrayList<Point>();
+        // find the closest leaf
+        KDNode prev = null;
+        KDNode node = null;
+        if (searchTerm.cat == Category.RESTAURANT){
+            node = restaurantTree;
+        }
+        if (searchTerm.cat == Category.EDUCATION){
+            node = educationTree;
+        }
+        if (searchTerm.cat == Category.HOSPITAL){
+            node = hospitalTree;
+        }
+        while (node != null) {
+            if (KDNode.compareTo(node.depth, dimension, searchTerm, node.point) <= 0) {
+                // Lesser
+                prev = node;
+                node = node.left;
+            } else {
+                // Greater
+                prev = node;
+                node = node.right;
+            }
+        }
+        KDNode leaf = prev;
+
+        if (leaf != null) {
+            // Used to not re-examine nodes
+            Set<KDNode> examined = new HashSet<KDNode>();
+
+            // recurve the tree, check if the leaf node is the nearest one
+            node = leaf;
+            while (node != null) {
+                // Search node
+                searchNode(searchTerm, node, results, examined);
+                node = node.parent;
+            }
+        }
+
+        return resultList;
     }
 
     @Override
