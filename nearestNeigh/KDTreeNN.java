@@ -40,7 +40,7 @@ public class KDTreeNN implements NearestNeigh{
         }
     };
 
-    public static class KDNode{
+    public static class KDNode {
         private Point point;
         int depth;
 
@@ -63,11 +63,11 @@ public class KDTreeNN implements NearestNeigh{
             this.depth = depth;
         }
 
-        public static int compareTo(int depth, int dimension, Point o1, Point o2) {
+        static int compareTo(int depth, int dimension, Point o1, Point o2) {
             int axis = depth % dimension;
-            if (axis == X_AXIS)
-                return X_COMPARATOR.compare(o1, o2);
-            return Y_COMPARATOR.compare(o1, o2);
+            if (axis == KDTreeNN.X_AXIS)
+                return KDTreeNN.X_COMPARATOR.compare(o1, o2);
+            return KDTreeNN.Y_COMPARATOR.compare(o1, o2);
         }
 
         public Point getPoint() {
@@ -87,7 +87,6 @@ public class KDTreeNN implements NearestNeigh{
         }
     }
 
-    private int dimension = 2;
     KDNode restaurantTree = null;
     KDNode educationTree = null;
     KDNode hospitalTree = null;
@@ -98,12 +97,16 @@ public class KDTreeNN implements NearestNeigh{
     // create node to build the tree from the input list
     private KDNode createTree(List<Point> points, int depth){
         // edge case, avoid null pointer exception
-        if (points.size() == 0 || points == null){
+        try{
+            if (points.size() == 0 || points == null){
+                return null;
+            }
+        }catch (NullPointerException e){
             return null;
         }
 
         // sort the list according to the dimension
-        int axis = depth % dimension;
+        int axis = depth % 2;
         if (axis == X_AXIS)
             Collections.sort(points, X_COMPARATOR);
         else if (axis == Y_AXIS)
@@ -118,25 +121,26 @@ public class KDTreeNN implements NearestNeigh{
             node = new KDNode(points.get(medianIndex), depth);
             // Process list to see where each non-median point lies
             for (int i = 0; i < points.size(); i++) {
-                if (i == medianIndex)
+                if (i == medianIndex){
                     continue;
+                }
                 Point point = points.get(i);
                 // Cannot assume points before the median are less since they could be equal
-                if (KDNode.compareTo(depth, dimension, point, node.point) <= 0) {
+                if (KDNode.compareTo(depth, 2, point, node.point) <= 0) {
                     less.add(point);
                 } else {
                     more.add(point);
                 }
             }
 
-            if ((medianIndex-1 >= 0) && less.size() > 0) {
-                node.left = createTree(less, depth + 1);
-                node.right.parent = node;
-            }
-
             if ((medianIndex <= points.size()-1) && more.size() > 0) {
                 node.right = createTree(more, depth + 1);
                 node.right.parent = node;
+            }
+
+            if ((medianIndex-1 >= 0) && less.size() > 0) {
+                node.left = createTree(less, depth + 1);
+                node.left.parent = node;
             }
         }
         return node;
@@ -167,7 +171,7 @@ public class KDTreeNN implements NearestNeigh{
         hospitalTree = createTree(hospitalPoints, 0);
     }
 
-    private void searchNode(Point searchTerm, KDNode node, int k, TreeSet<KDNode> results, Set<KDNode> examined){
+    private void searchNode(Point searchTerm, KDNode node, int k, TreeSet<KDNode> results, Set<KDNode> examined) {
         examined.add(node);
 
         // Search node
@@ -178,23 +182,24 @@ public class KDTreeNN implements NearestNeigh{
             lastDistance = lastNode.point.distTo(searchTerm);
         }
         Double nodeDistance = node.point.distTo(searchTerm);
-        if (nodeDistance.compareTo(lastDistance) < 0) {
+        if (nodeDistance < lastDistance) {
             if (results.size() == k && lastNode != null)
                 results.remove(lastNode);
             results.add(node);
-        } else if (nodeDistance.equals(lastDistance)) {
+        } else if (nodeDistance == lastDistance) {
             results.add(node);
         } else if (results.size() < k) {
             results.add(node);
         }
+        // update nearest node and the distance
         lastNode = results.last();
         lastDistance = lastNode.point.distTo(searchTerm);
 
-        int axis = node.depth % dimension;
+        int axis = node.depth % 2;
         KDNode leftNode = node.left;
         KDNode rightNode = node.right;
 
-        // if axis aligned distance is less than current distance, search children tree,
+        // if axis aligned distance is less than current distance, search children trees,
         if (leftNode != null && !examined.contains(leftNode)) {
             examined.add(leftNode);
 
@@ -203,36 +208,55 @@ public class KDTreeNN implements NearestNeigh{
             if (axis == X_AXIS) {
                 nodePoint = node.point.lat;
                 valuePlusDistance = searchTerm.lat - lastDistance;
-            } else if (axis == Y_AXIS) {
+            } else {
                 nodePoint = node.point.lon;
                 valuePlusDistance = searchTerm.lon - lastDistance;
-            boolean lineIntersectsCube = ((valuePlusDistance <= nodePoint) ? true : false);
+                boolean lineIntersectsCube = ((valuePlusDistance <= nodePoint) ? true : false);
 
-            // Continue down left branch
-            if (lineIntersectsCube)
-                searchNode(searchTerm, leftNode, k, results, examined);
-        }
-        if (rightNode != null && !examined.contains(rightNode)) {
-            examined.add(rightNode);
-
-            nodePoint = Double.MIN_VALUE;
-            valuePlusDistance = Double.MIN_VALUE;
-            if (axis == X_AXIS) {
-                nodePoint = node.id.x;
-                nodePoint = node.id.x;
-                valuePlusDistance = value.x + lastDistance;
-            } else if (axis == Y_AXIS) {
-                nodePoint = node.id.y;
-                valuePlusDistance = value.y + lastDistance;
-            } else {
-                nodePoint = node.id.z;
-                valuePlusDistance = value.z + lastDistance;
+                // Continue down left branch
+                if (lineIntersectsCube)
+                    searchNode(searchTerm, leftNode, k, results, examined);
             }
-            boolean lineIntersectsCube = ((valuePlusDistance >= nodePoint) ? true : false);
+            if (rightNode != null && !examined.contains(rightNode)) {
+                examined.add(rightNode);
 
-            // Continue down greater branch
-            if (lineIntersectsCube)
-                searchNode(value, rightNode, K, results, examined);
+                nodePoint = Double.MIN_VALUE;
+                valuePlusDistance = Double.MIN_VALUE;
+                if (axis == X_AXIS) {
+                    nodePoint = node.point.lat;
+                    valuePlusDistance = searchTerm.lat + lastDistance;
+                } else if (axis == Y_AXIS) {
+                    nodePoint = node.point.lon;
+                    valuePlusDistance = searchTerm.lon + lastDistance;
+                }
+                boolean lineIntersectsCube = ((valuePlusDistance >= nodePoint) ? true : false);
+
+                // Continue down greater branch
+                if (lineIntersectsCube) {
+                    searchNode(searchTerm, rightNode, k, results, examined);
+                }
+            }
+        }
+    }
+
+    protected static class EuclideanComparator implements Comparator<KDNode> {
+
+        private final Point point;
+
+        public EuclideanComparator(Point point) {
+            this.point = point;
+        }
+
+        @Override
+        public int compare(KDNode o1, KDNode o2) {
+            Double distance1 = point.distTo(o1.point);
+            Double distance2 = point.distTo(o1.point);
+            if (distance1.compareTo(distance2) < 0)
+                return -1;
+            else if (distance2.compareTo(distance1) < 0)
+                return 1;
+            int depth = o1.depth;
+            return KDNode.compareTo(depth, 2, o1.point, o2.point);
         }
     }
 
@@ -255,12 +279,12 @@ public class KDTreeNN implements NearestNeigh{
             node = hospitalTree;
         }
         while (node != null) {
-            if (KDNode.compareTo(node.depth, dimension, searchTerm, node.point) <= 0) {
-                // Lesser
+            if (KDNode.compareTo(node.depth, 2, searchTerm, node.point) <= 0) {
+                // left branch
                 prev = node;
                 node = node.left;
             } else {
-                // Greater
+                // right branch
                 prev = node;
                 node = node.right;
             }
@@ -275,9 +299,20 @@ public class KDTreeNN implements NearestNeigh{
             node = leaf;
             while (node != null) {
                 // Search node
-                searchNode(searchTerm, node, results, examined);
+                searchNode(searchTerm, node, k, results, examined);
                 node = node.parent;
             }
+        }
+
+        for (KDNode temNode : results) {
+            System.out.println("tmpNode: " + temNode.point.id);
+            resultList.add(temNode.point);
+        }
+
+        System.out.println("---");
+
+        for (Point point : resultList) {
+            System.out.println("distance: " + point.distTo(searchTerm));
         }
 
         return resultList;
