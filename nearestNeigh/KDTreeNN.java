@@ -183,10 +183,9 @@ public class KDTreeNN implements NearestNeigh{
         }
         Double nodeDistance = node.point.distTo(searchTerm);
         if (nodeDistance < lastDistance) {
-            if (results.size() == k && lastNode != null)
+            if (results.size() == k && lastNode != null){
                 results.remove(lastNode);
-            results.add(node);
-        } else if (nodeDistance == lastDistance) {
+            }
             results.add(node);
         } else if (results.size() < k) {
             results.add(node);
@@ -203,40 +202,62 @@ public class KDTreeNN implements NearestNeigh{
         if (leftNode != null && !examined.contains(leftNode)) {
             examined.add(leftNode);
 
+            double nodeCoordinate= Double.MIN_VALUE;
+            double valueMinusDistance = Double.MIN_VALUE;
+            if (axis == X_AXIS) {
+                nodeCoordinate = node.point.lat;
+                valueMinusDistance = searchTerm.lat - lastDistance;
+            }
+            if (axis == Y_AXIS) {
+                nodeCoordinate = node.point.lon;
+                valueMinusDistance = searchTerm.lon - lastDistance;
+            }
+            boolean lineIntersectsCube = ((valueMinusDistance <= nodeCoordinate) ? true : false);
+
+            // Continue down left branch
+            if (lineIntersectsCube){
+                searchNode(searchTerm, leftNode, k, results, examined);
+            }
+        }
+
+        if (rightNode != null && !examined.contains(rightNode)) {
+            examined.add(rightNode);
+
             double nodePoint = Double.MIN_VALUE;
             double valuePlusDistance = Double.MIN_VALUE;
             if (axis == X_AXIS) {
                 nodePoint = node.point.lat;
-                valuePlusDistance = searchTerm.lat - lastDistance;
-            } else {
-                nodePoint = node.point.lon;
-                valuePlusDistance = searchTerm.lon - lastDistance;
-                boolean lineIntersectsCube = ((valuePlusDistance <= nodePoint) ? true : false);
-
-                // Continue down left branch
-                if (lineIntersectsCube)
-                    searchNode(searchTerm, leftNode, k, results, examined);
+                valuePlusDistance = searchTerm.lat + lastDistance;
             }
-            if (rightNode != null && !examined.contains(rightNode)) {
-                examined.add(rightNode);
+            if (axis == Y_AXIS){
+                nodePoint = node.point.lon;
+                valuePlusDistance = searchTerm.lon + lastDistance;
+            }
+            boolean lineIntersectsCube = ((valuePlusDistance >= nodePoint) ? true : false);
 
-                nodePoint = Double.MIN_VALUE;
-                valuePlusDistance = Double.MIN_VALUE;
-                if (axis == X_AXIS) {
-                    nodePoint = node.point.lat;
-                    valuePlusDistance = searchTerm.lat + lastDistance;
-                } else if (axis == Y_AXIS) {
-                    nodePoint = node.point.lon;
-                    valuePlusDistance = searchTerm.lon + lastDistance;
-                }
-                boolean lineIntersectsCube = ((valuePlusDistance >= nodePoint) ? true : false);
-
-                // Continue down greater branch
-                if (lineIntersectsCube) {
-                    searchNode(searchTerm, rightNode, k, results, examined);
-                }
+            // Continue down greater branch
+            if (lineIntersectsCube) {
+                searchNode(searchTerm, rightNode, k, results, examined);
             }
         }
+
+    }
+
+    private ArrayList<Point> sortResult(ArrayList<Point> points, Point searchTerm){
+        for (int i = 0; i < points.size() - 1; i++) {
+            int min = i;
+            for (int j = i + 1; j < points.size(); j++) {
+                if (points.get(j).distTo(searchTerm) < points.get(min).distTo(searchTerm)) {
+                    min = j;
+                }
+            }
+
+            Point temp = points.get(i);
+            Point minPoint = points.get(min);
+            points.set(i, minPoint);
+            points.set(min, temp);
+        }
+        return points;
     }
 
     protected static class EuclideanComparator implements Comparator<KDNode> {
@@ -295,24 +316,29 @@ public class KDTreeNN implements NearestNeigh{
             // Used to not re-examine nodes
             Set<KDNode> examined = new HashSet<KDNode>();
 
-            // recurve the tree, check if the leaf node is the nearest one
+            // check if the leaf node is the nearest one
             node = leaf;
             while (node != null) {
-                // Search node
+                // backtrack
                 searchNode(searchTerm, node, k, results, examined);
                 node = node.parent;
             }
         }
 
         for (KDNode temNode : results) {
-            System.out.println("tmpNode: " + temNode.point.id);
             resultList.add(temNode.point);
+        }
+
+        resultList = sortResult(resultList, searchTerm);
+
+        for (Point point : resultList) {
+            System.out.println("distance: " + point.distTo(searchTerm));
         }
 
         System.out.println("---");
 
         for (Point point : resultList) {
-            System.out.println("distance: " + point.distTo(searchTerm));
+            System.out.println("id: " + point.id);
         }
 
         return resultList;
