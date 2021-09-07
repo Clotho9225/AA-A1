@@ -24,7 +24,6 @@ public class NaiveNN implements NearestNeigh{
 
     @Override
     public void buildIndex(List<Point> points) {
-        // To be implemented.
 
         // add elements into the map
         for ( Point point : points ) {
@@ -71,7 +70,6 @@ public class NaiveNN implements NearestNeigh{
 
     @Override
     public boolean addPoint(Point point) {
-        // To be implemented.
         if (!pointsMap.containsValue(point)){
             pointsMap.put(point.id, point);
             return true;
@@ -81,7 +79,6 @@ public class NaiveNN implements NearestNeigh{
 
     @Override
     public boolean deletePoint(Point point) {
-        // To be implemented.
         if (pointsMap.containsValue(point)){
             pointsMap.remove(point.id);
             return true;
@@ -91,7 +88,6 @@ public class NaiveNN implements NearestNeigh{
 
     @Override
     public boolean isPointIn(Point point) {
-        // To be implemented.
         if (pointsMap.containsValue(point)){
             return true;
         }
