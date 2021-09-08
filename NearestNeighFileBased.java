@@ -5,7 +5,6 @@ import nearestNeigh.KDTreeNN;
 import java.io.*;
 import java.util.*;
 import nearestNeigh.NaiveNN;
-import nearestNeigh.TestNN;
 import nearestNeigh.NearestNeigh;
 
 /**
