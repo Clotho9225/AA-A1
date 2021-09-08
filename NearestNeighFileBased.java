@@ -105,17 +105,7 @@ public class NearestNeighFileBased {
                         lon = scanner.nextDouble();
                         k = scanner.nextInt();
                         point = new Point("searchTerm", cat, lat, lon);
-
-                        // start time
-                        double startTime = System.nanoTime();
                         List<Point> searchResult = agent.search(point, k);
-                        // end time
-                        double endTime = System.nanoTime();
-
-                        // end time - start time
-                        double time = endTime - startTime;
-                        System.out.println("time: " + time / 1_000_000_000 + "secs");
-
                         for (Point writePoint : searchResult) {
                             writer.println(writePoint.toString());
                         }
